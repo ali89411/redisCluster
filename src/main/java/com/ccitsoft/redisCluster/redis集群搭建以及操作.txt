@@ -1,0 +1,61 @@
+利用单机模仿redis集群，需要3个主节点
+1, /usr 下创建redis-cluster,并且创建7001-7006文件夹。
+2, 复制redis.conf文件分别到700*文件下。
+3, 进行修改redis.conf文件
+   (1) daemonize yes 后台启动
+   (2) port 700* 对应每个机器端口号
+   (3) bind 192.168.100.33 绑定主机地址
+   (4) dir /usr/redis-cluster/700*/ 指定数据文件存放地址，否则数据丢失
+   (5) cluster-enable yes 启动集群模式
+   (6) cluster-config-file nodes700*.conf 指定集群生成conf配置文件。
+   (7) cluster-node-timeout 5000 超时时间
+   (8) appendonly yes 开启更新操作日志记录
+4, cluster需要ruby
+   (1) yum install ruby
+   (2) yum　install rubygems
+   (3) gem install redis --version 3.0.0 (若--version 3.0.0 则最新redis 4.x 需要gem 2.2.x 版本支持。yum 安装gem 只有2.0版本)
+5, 分别启动6个服务，检查是否成功
+   (1) 启动服务。依靠redis本身redis-server
+       ./redis-server /usr/redis-cluster/700*/redis.conf
+   (2) netstat -antplu | grep redis 查看服务是否启动
+6, 到redis安装目录下src。cd/usr/redis/src下，利用集群命令操作，redis-trib.rb
+   (1) ./redis-trib.rb help 查看集群操作命令(包含creat,add-node,del-note )
+   (2) 创建集群 ./redis-trib.rb create --replicas 1 192.168.100.33:7001 192.168.100.33:7002
+                             192.168.100.33:7003 192.168.100.33:7004 192.168.100.33:7005 192.168.100.33:7005
+   (3) replicas 1 代表M机器与S机器数量比例为1:1。结果7001,7002,7003为Master,生成卡槽数slots:0-5460 (5461 slots)。7004生成为7001从机器Slave
+                                         7005为7002从机器Slave。7006为7003从机器Slave。Slave机器没有卡槽数分配，说明从机器只是读取数据，不进行写入。
+7, 连接验证./redis-Cli -c -h 192.168.100.33 -p 7001(-c 表示集群，可以连接集群中任何一台服务器)
+   (1) cluster info (查看集群信息) 
+   (2) cluster nodes (查看节点信息)
+   (3) 数据验证。set name testRedis 根据卡槽数储存在相应Mater机器上。当没有分配当前连接机子时，keys * 为null
+   (4) get name 取得testRedis值。
+8, 新增Mster Slave机器
+   (1)按照上述步骤添加7007,7008文件夹，并且启动。
+   (2)添加水平拓展节点(7007)./redis-trib.rb add-node 192.168.100.33:7007 192.168.100.33:7001 (192.168.100.33:7001 为任意已经存在节点)
+   (3)连接任意节点 查看cluster nodes。确认7007是否存在集群中
+   (4)若7007为Master机器，需要分配卡槽操作。
+      ./redis-trib.rb reshard 192.168.1.171:7001(192.168.1.171:7001 为任意一个Master节点)
+                 提示一：是希望你需要多少个槽移动到新的节点上，可以自己设置，比如1000个槽
+                 提示二：是你需要把这1000个slot槽移动到那个节点上去（需要指定节点id），并且下个提示是输入all为从所有主节点（7001 7002 7003）中分别抽取响应的槽数（一共为1000个槽到指定的新节点中！，并且会打印执行分片的计划。）
+                 提示三：输入yes确认开始执行。
+   (5)添加(7008)为7007-Slave机器
+      1 ./redis-trib.rb add-node 192.168.100.33:7008 192.168.100.33:7001 (192.168.100.33:7001 为任意已经存在节点)
+      2 登录7008 ./redis-Cli c -h 192.168.100.33 -p 7008
+      3 cluster replicate 974aa62098ee8fd5e79b1a96b499a7505a2f6962 (7007Master的ID)
+9, 删除Slave机器
+   (1)./redis-trib.rb del-node 192.168.1.171:7008 97b0e0115326833724eb0ffe1d0574ee34618e9f(7008Slave的ID)
+10, 删除Master机器
+   (1)需要迁移数据Master(7007slot槽数据)./redis-trib.rb reshard 192.168.100.33:7007
+                根据提示信息迁移到一个Master主机上,根据第9步操作删除7007Maser。
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
