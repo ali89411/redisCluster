@@ -1,0 +1,42 @@
+windows下
+1,官网下载http://activemq.apache.org,解压
+     访问客户端http://localhost:8161/admin (port配置在..conf/jetty.xml)
+     利用admin登录 (用户名,密码配置位于..conf/jetty-realm.properties)
+2,建立ConnectionFactory参数brokerURL (配置位于../conf/activemq.xml)
+      包括多种连接协议。tcp连接默认为：tcp://0.0.0.0:61616
+3,安全机制配置(ConnectionFactory参数userName,password)
+     配置 conf/activemq.xml 的 broke元素添加插件:
+  <simpleAuthenticationPlugin>
+    <users>
+        <authenticationUser username="lic" password="Aa123456" groups="users,admins"/>     
+    </users>
+  </simpleAuthenticationPlugin>
+4,session参数
+  1,若参数transacted为true开启事务,需messageProducer.send("message")完成,进行session.commit();
+  2,若参数acknowledgeMode设置CLIENT_ACKNOWLEDGE客户端签收方式,需要在消费者。consumer.receive()完成,调用consumer.acknowledge()通知客户端已经签收。
+5,messageProducer参数
+     参数1. 消息  参数2.是否是否持久化  3.优先级参数1-9  默认是4  5-9是加急(优先级不是绝对。)。4.存活的时间
+  messageProducer.send(textMessage, DeliveryMode.NON_PERSISTENT, i, 1000*60*2);
+6,MessageConsumer参数
+     参数：messageSelector,客户端消费数据,可以添加过滤数据Selector。需Producer端(例如发送是MapMessage--MapMessage.setStringProperty("name","ali"))
+      Selector条件(name = 'ali')
+7,利用mysql持久化数据
+  将其中的这段配置：
+	<persistenceAdapter>
+		<kahaDB directory="${activemq.base}/data/kahadb"/>
+	</persistenceAdapter>
+	修改为下面这段内容：
+	<persistenceAdapter>
+	   <jdbcPersistenceAdapter  dataSource="#derby-ds"/>
+	</persistenceAdapter>
+	另外需要在broker节点的上面定义id为derby-ds的bean，如下：
+   <beanid="derby-ds"class="org.apache.commons.dbcp.BasicDataSource"destroy-method="close">
+            <propertyname="driverClassName" value="com.mysql.jdbc.Driver"/>
+            <property name="url" value="jdbc:mysql://bdm2928079.my3w.com:3306/bdm2928079_db?relaxAutoCommit=true"/>
+            <propertyname="username" value="root"/>
+            <propertyname="password" value="root"/>
+            <propertyname="maxActive" value="200"/>
+            <propertyname="poolPreparedStatements" value="true"/>
+   </bean>
+        需要../lib 需要添加mysql.jar  commons-dbcp.jar commons-pool.jar  
+8,系统自动创建成功3张表 ACTIVEMQ_ACKS   ACTIVEMQ_LOCK  ACTIVEMQ_MSGS

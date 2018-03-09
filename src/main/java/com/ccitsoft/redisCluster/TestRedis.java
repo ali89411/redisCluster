@@ -29,6 +29,7 @@ public class TestRedis {
 		jedisClusterNode.add(new HostAndPort("192.168.100.33", 7004));
 		jedisClusterNode.add(new HostAndPort("192.168.100.33", 7005));
 		jedisClusterNode.add(new HostAndPort("192.168.100.33", 7006));
+//		jedisClusterNode.add(new HostAndPort(host, port));
 		// 定义连接池
 		JedisPoolConfig jedisPoolConfig = new JedisPoolConfig();
 		jedisPoolConfig.setMaxTotal(100);
@@ -41,6 +42,7 @@ public class TestRedis {
 		System.out.println(jedisCluster.set("sex", "27"));
 		System.out.println(jedisCluster.get("name"));
 		System.out.println(jedisCluster.get("sex"));
+//		jedisClusterNode.forEach();
 	}
 
 }
